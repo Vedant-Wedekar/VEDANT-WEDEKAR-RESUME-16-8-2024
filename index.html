@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Interactive Zoom and Drag Notebook Page</title>
+    <title>Interactive Zoom, Drag, and Pinch-to-Zoom Notebook Page</title>
     <style>
         body {
             margin: 0;
@@ -25,7 +25,7 @@
             align-items: center;
             overflow: hidden;
             cursor: grab;
-            touch-action: none; /* Disable double-tap zoom on mobile */
+            touch-action: none; /* Disable default touch actions */
         }
         .notebook-page {
             transition: transform 0.3s ease, transform-origin 0.3s ease;
@@ -47,6 +47,7 @@
         let isDragging = false;
         let startX, startY, initialX = 0, initialY = 0;
         let currentX = 0, currentY = 0;
+        let lastTouchDistance = null;
         const notebookImage = document.getElementById('notebookImage');
         const container = document.getElementById('container');
 
@@ -93,6 +94,39 @@
             notebookImage.style.transform = `scale(${scale}) translate(${currentX}px, ${currentY}px)`;
         });
 
+        // Pinch-to-zoom (mobile only)
+        container.addEventListener('touchmove', (event) => {
+            if (event.touches.length === 2) {
+                event.preventDefault();
+
+                const touch1 = event.touches[0];
+                const touch2 = event.touches[1];
+
+                const currentTouchDistance = Math.hypot(touch2.clientX - touch1.clientX, touch2.clientY - touch1.clientY);
+
+                if (lastTouchDistance) {
+                    const scaleChange = currentTouchDistance / lastTouchDistance;
+
+                    scale *= scaleChange;
+                    scale = Math.min(Math.max(1, scale), 3);
+
+                    const rect = notebookImage.getBoundingClientRect();
+                    const centerX = (touch1.clientX + touch2.clientX) / 2 - rect.left;
+                    const centerY = (touch1.clientY + touch2.clientY) / 2 - rect.top;
+
+                    notebookImage.style.transformOrigin = `${centerX}px ${centerY}px`;
+                    notebookImage.style.transform = `scale(${scale}) translate(${currentX}px, ${currentY}px)`;
+                }
+
+                lastTouchDistance = currentTouchDistance;
+            }
+        });
+
+        container.addEventListener('touchend', () => {
+            lastTouchDistance = null; // Reset distance when fingers are lifted
+            stopDragging();
+        });
+
         // Mouse events
         container.addEventListener('mousedown', (event) => {
             startDragging(event.clientX, event.clientY);
@@ -105,15 +139,19 @@
         container.addEventListener('mouseup', stopDragging);
         container.addEventListener('mouseleave', stopDragging);
 
-        // Touch events
+        // Touch events for dragging
         container.addEventListener('touchstart', (event) => {
-            const touch = event.touches[0];
-            startDragging(touch.clientX, touch.clientY);
+            if (event.touches.length === 1) {
+                const touch = event.touches[0];
+                startDragging(touch.clientX, touch.clientY);
+            }
         });
 
         container.addEventListener('touchmove', (event) => {
-            const touch = event.touches[0];
-            dragImage(touch.clientX, touch.clientY);
+            if (event.touches.length === 1) {
+                const touch = event.touches[0];
+                dragImage(touch.clientX, touch.clientY);
+            }
         });
 
         container.addEventListener('touchend', stopDragging);
@@ -121,3 +159,4 @@
     </script>
 </body>
 </html>
+
